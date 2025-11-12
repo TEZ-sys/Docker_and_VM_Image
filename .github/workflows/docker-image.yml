@@ -34,7 +34,7 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           # Sanitize branch name (replace / with -)
-          SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-')
+          SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
       
           IMAGE_TAG=docker_image_${SAFE_BRANCH}_${RUN_NUMBER}_${RUN_ID}
           echo "🏷️ Using tag: $IMAGE_TAG"
