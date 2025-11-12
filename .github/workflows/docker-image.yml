@@ -28,7 +28,7 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: nebo_task   # <-- your ECR repo name
-          IMAGE_TAG: docker_image_${{ github.run_number }}
+          IMAGE_TAG: docker_image_${{ github.run_number }}_${{ github.run_id }}
         run: |
           # Build the Docker image
           docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
