@@ -1,0 +1,27 @@
+name: Send email
+on:
+  push:
+    branches: [ "main", "Stage" ]
+
+jobs:
+    steps:
+      if: always()  # ensures this runs even if previous steps fail
+      uses: dawidd6/action-send-mail@v6
+      with:
+         server_address: smtp.gmail.com
+         server_port: 465
+         username: ${{ secrets.SMTP_USERNAME }}
+         password: ${{ secrets.SMTP_PASSWORD }}
+         subject: "🚀 Build ${{ job.status }} for ${{ github.repository }}"
+         to: your_email@example.com
+         from: "GitHub Actions <${{ secrets.SMTP_USERNAME }}>" 
+         body: |
+            Hello,
+            
+            The build for **${{ github.repository }}** on branch **${{ github.ref_name }}**
+            has completed with status: **${{ job.status }}**
+      
+            🔗 Run details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      
+            Best,
+            GitHub Actions Bot
