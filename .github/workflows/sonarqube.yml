@@ -2,7 +2,7 @@ name: SonarQube Nebo-Testing
 on:
   push:
     branches:
-      - main
+      - stage
   pull_request:
     types: [opened, synchronize, reopened]
 jobs:
