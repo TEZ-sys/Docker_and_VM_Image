@@ -54,9 +54,6 @@ jobs:
             docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
             docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
         
-            # Also push 'latest'
-            docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:latest"
-            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:latest"
           fi
         
           # Push to STAGE if stage branch
