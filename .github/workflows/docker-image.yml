@@ -35,28 +35,33 @@ jobs:
         run: |
           # Sanitize branch name (replace / with -)
           SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
-      
+        
           IMAGE_TAG=docker_image_${SAFE_BRANCH}_${RUN_NUMBER}_${RUN_ID}
           echo "🏷️ Using tag: $IMAGE_TAG"
-      
-          # Build the image
-          docker build -t $IMAGE_TAG .
-      
+        
+          # Force unique digest using a build ID
+          BUILD_ID="${RUN_ID}-$(date +%s)"
+          echo "🔧 Build ID: $BUILD_ID"
+        
+          # Build the image with a unique digest
+          docker build \
+            --build-arg BUILD_ID="$BUILD_ID" \
+            -t "$IMAGE_TAG" \
+            .
+        
           # Push to PROD if main branch
           if [ "$SAFE_BRANCH" = "main" ]; then
-            docker tag $IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG
-            docker push $ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG
-      
-            # Also push 'latest' tag for convenience
-            docker tag $IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY_PROD:latest
-            docker push $ECR_REGISTRY/$ECR_REPOSITORY_PROD:latest
+            docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
+            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
+        
+            # Also push 'latest'
+            docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:latest"
+            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:latest"
           fi
-      
-          # Push to STAGE if Stage branch
+        
+          # Push to STAGE if stage branch
           if [ "$SAFE_BRANCH" = "stage" ]; then
-            docker tag $IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG
-            docker push $ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG
-
+            docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
+            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
           fi
-      
-          echo "✅ Image pushed successfully with tag: $IMAGE_TAG"
+
