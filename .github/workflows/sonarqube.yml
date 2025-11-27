@@ -27,10 +27,10 @@ jobs:
         uses: aws-actions/aws-secretsmanager-get-secrets@v2
         with:
           secret-ids: |
-            all_env,sonarqube/all_env
+            SONAR_QUBE_TOKEN,sonarqube/all_env
           parse-json-secrets: true   
           
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v6
         env:
-          SONAR_TOKEN: ${{ env.all_env }}
+          SONAR_TOKEN: ${{ env.SONAR_QUBE_TOKEN }}
