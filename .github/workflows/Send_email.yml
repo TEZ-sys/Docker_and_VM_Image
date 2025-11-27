@@ -23,14 +23,15 @@ jobs:
             EMAIL_PASSWORD,user_data/password
             EMAIL_RECIPIENT,user_data/email
           parse-json-secrets: true
-       
+          run: "echo ${{ env.EMAIL_CONFIG }} ${{ env.EMAIL_PASSWORD }} ${ env.EMAIL_RECIPIENT }}"
+          
       - name: Send email notification
         if: always()
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
           server_port: 465
-          secure: true
+          secure: false
           username: ${{ env.EMAIL_CONFIG }}
           password: ${{ env.EMAIL_PASSWORD }}
           subject: "🚀 Build ${{ job.status }} for ${{ github.repository }}"
