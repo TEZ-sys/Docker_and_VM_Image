@@ -8,19 +8,36 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-        - name: Send email notification
-          if: always()  # ensures this runs even if previous steps fail
-          uses: dawidd6/action-send-mail@v6
-          with:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      # Step 2: Fetch secrets from AWS Secrets Manager
+      - name: Get secrets from AWS Secrets Manager
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            SMTP_USERNAME,user_data/email_sender
+            SMTP_PASSWORD,user_data/password
+            SEND_TO_USER,user_data/email
+          parse-json-secrets: true
+       
+      - name: Send email notification
+        if: always()  # ensures this runs even if previous steps fail
+        uses: dawidd6/action-send-mail@v6
+        with:
              server_address: smtp.gmail.com
              server_port: 465
-             username: ${{ secrets.SMTP_USERNAME }}
-             password: ${{ secrets.SMTP_PASSWORD }}
+             username: ${{ env.SMTP_USERNAME }}
+             password: ${{ env.SMTP_PASSWORD }}
              subject: "🚀 Build ${{ job.status }} for ${{ github.repository }}"
-             to: ${{ secrets.SEND_TO_USER }}
+             to: ${{ env.SEND_TO_USER }}
              from: "GitHub Actions <${{ secrets.SMTP_USERNAME }}>" 
              body: |
-                Hello ${{ secrets.SMTP_USERNAME }},
+                Hello ${{ secrets.SEND_TO_USER }},
                 The build for ${{ github.repository }} on branch ${{ github.ref_name }}
                 has completed with status: ${{ job.status }}
           
