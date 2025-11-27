@@ -20,10 +20,9 @@ jobs:
              to: ${{ secrets.SEND_TO_USER }}
              from: "GitHub Actions <${{ secrets.SMTP_USERNAME }}>" 
              body: |
-                Hello,
-                
-                The build for **${{ github.repository }}** on branch **${{ github.ref_name }}**
-                has completed with status: **${{ job.status }}**
+                Hello ${{ secrets.SMTP_USERNAME }},
+                The build for ${{ github.repository }} on branch ${{ github.ref_name }}
+                has completed with status: ${{ job.status }}
           
                 🔗 Run details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           
