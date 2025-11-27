@@ -1,7 +1,7 @@
 name: Send email
 on:
   push:
-    branches: [ "main", "Stage" ]
+    branches: [ "main", "Stage", "DEV-*" ]
 
 jobs:
  send_email:
