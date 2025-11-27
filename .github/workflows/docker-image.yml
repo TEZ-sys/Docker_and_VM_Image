@@ -2,9 +2,9 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "main", "Stage" ]
+    branches: [ "Stage" ]
   pull_request:
-    branches: [ "main", "Stage" ]
+    branches: [ "Stage" ]
 
 jobs:
   build:
@@ -48,14 +48,7 @@ jobs:
             --build-arg BUILD_ID="$BUILD_ID" \
             -t "$IMAGE_TAG" \
             .
-        
-          # Push to PROD if main branch
-          if [ "$SAFE_BRANCH" = "main" ]; then
-            docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
-            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
-        
-          fi
-        
+
           # Push to STAGE if stage branch
           if [ "$SAFE_BRANCH" = "stage" ]; then
             docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
