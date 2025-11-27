@@ -4,7 +4,7 @@ on:
     branches: [ "main", "Stage", "DEV-*" ]
 
 jobs:
- send_email:
+  send_email:
     runs-on: ubuntu-latest
     
     steps:
@@ -15,33 +15,33 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
       
-      # Step 2: Fetch secrets from AWS Secrets Manager
       - name: Get secrets from AWS Secrets Manager
         uses: aws-actions/aws-secretsmanager-get-secrets@v2
         with:
           secret-ids: |
-            SMTP_USERNAME,user_data/email_sender
-            SMTP_PASSWORD,user_data/password
-            SEND_TO_USER,user_data/email
-          parse-json-secrets: true
+            EMAIL_CONFIG,user_data/email_sender
+            EMAIL_PASSWORD,user_data/password
+            EMAIL_RECIPIENT,user_data/email
        
       - name: Send email notification
-        if: always()  # ensures this runs even if previous steps fail
-        uses: dawidd6/action-send-mail@v6
+        if: always()
+        uses: dawidd6/action-send-mail@v3
         with:
-             server_address: smtp.gmail.com
-             server_port: 465
-             username: ${{ env.SMTP_USERNAME }}
-             password: ${{ env.SMTP_PASSWORD }}
-             subject: "🚀 Build ${{ job.status }} for ${{ github.repository }}"
-             to: ${{ env.SEND_TO_USER }}
-             from: "GitHub Actions <${{ secrets.SMTP_USERNAME }}>" 
-             body: |
-                Hello ${{ secrets.SEND_TO_USER }},
-                The build for ${{ github.repository }} on branch ${{ github.ref_name }}
-                has completed with status: ${{ job.status }}
-          
-                🔗 Run details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          
-                Best,
-                GitHub Actions Bot
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ env.EMAIL_CONFIG }}
+          password: ${{ env.EMAIL_PASSWORD }}
+          subject: "🚀 Build ${{ job.status }} for ${{ github.repository }}"
+          to: ${{ env.EMAIL_RECIPIENT }}
+          from: "GitHub Actions <${{ env.EMAIL_CONFIG }}>"
+          body: |
+            Hello,
+            
+            The build for ${{ github.repository }} on branch ${{ github.ref_name }}
+            has completed with status: ${{ job.status }}
+            
+            🔗 Run details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Best,
+            GitHub Actions Bot
