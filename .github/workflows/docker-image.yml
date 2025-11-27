@@ -2,9 +2,9 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "main", "Stage" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main", "Stage" ]
+    branches: [ "main" ]
 
 jobs:
   build:
@@ -54,10 +54,4 @@ jobs:
             docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
             docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
         
-          fi
-        
-          # Push to STAGE if stage branch
-          if [ "$SAFE_BRANCH" = "stage" ]; then
-            docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
-            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
           fi
