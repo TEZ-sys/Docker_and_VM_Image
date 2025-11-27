@@ -22,6 +22,7 @@ jobs:
             EMAIL_CONFIG,user_data/email_sender
             EMAIL_PASSWORD,user_data/password
             EMAIL_RECIPIENT,user_data/email
+          parse-json-secrets: true
        
       - name: Send email notification
         if: always()
