@@ -30,8 +30,8 @@ jobs:
           server_address: smtp.gmail.com
           server_port: 465
           secure: true
-          username: ${{ secrets.SMTP_PASSWORD }}
-          password: ${{ env.EMAIL_PASSWORD }}
+          username: ${{ env.EMAIL_SENDER }}
+          password: ${{ secrets.SMTP_PASSWORD }}
           subject: "🚀 Build ${{ job.status }} for ${{ github.repository }}"
           to: ${{ env.EMAIL_RECIPIENT }}
           from: "GitHub Actions <${{ env.EMAIL_SENDER }}>"
