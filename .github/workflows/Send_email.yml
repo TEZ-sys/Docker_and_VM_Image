@@ -37,8 +37,7 @@ jobs:
           to: ${{ env.EMAIL_RECIPIENT }}
           from: "GitHub Actions <${{ env.EMAIL_CONFIG }}>"
           body: |
-            Hello,
-      
+            Hello ${{ env.EMAIL_RECIPIENT }},
             The build for ${{ github.repository }} on branch ${{ github.ref_name }}
             has completed with status: ${{ job.status }}
       
