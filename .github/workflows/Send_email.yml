@@ -22,6 +22,11 @@ jobs:
             EMAIL_CONFIG,user_data/email_sender
             EMAIL_PASSWORD,user_data/password
             EMAIL_RECIPIENT,user_data/email
+      - name: Debug ENV
+        run: |
+          echo "EMAIL_CONFIG=$EMAIL_CONFIG"
+          echo "EMAIL_RECIPIENT=$EMAIL_RECIPIENT"
+          echo "EMAIL_PASSWORD length: ${#EMAIL_PASSWORD}"
           
       - name: Send email notification
         if: always()
