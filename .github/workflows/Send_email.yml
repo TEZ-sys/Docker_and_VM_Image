@@ -1,8 +1,12 @@
 name: Send email
 on:
   push:
-    branches: [ "main", "Stage", "DEV-*" ]
-
+    branches: [ "main", "stage", "dev-*" ]
+  workflow_run:
+    workflows: ["Docker Image CI", "SonarQube Nebo-Testing"]
+    types: 
+      - completed
+  
 jobs:
   send_email:
     runs-on: ubuntu-latest
