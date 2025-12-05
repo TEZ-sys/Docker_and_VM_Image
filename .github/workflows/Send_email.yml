@@ -34,13 +34,13 @@ jobs:
           server_address: smtp.gmail.com
           server_port: 465
           secure: true
-          username: ${{ env.EMAIL_SENDER }}
+          username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: "🚀 Build ${{ job.status }} for ${{ github.repository }}"
-          to: ${{ env.EMAIL_RECIPIENT }}
-          from: "GitHub Actions <${{ env.EMAIL_SENDER }}>"
+          to: ${{ secrets.SEND_TO_USER }}
+          from: "GitHub Actions <${{ secrets.SEND_TO_USER }}>"
           body: |
-            Hello ${{ env.EMAIL_RECIPIENT }},
+            Hello ${{ secrets.SEND_TO_USER }},
             The build for ${{ github.repository }} on branch ${{ github.ref_name }}
             has completed with status: ${{ job.status }}
       
