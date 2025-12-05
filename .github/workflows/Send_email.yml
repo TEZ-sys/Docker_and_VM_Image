@@ -27,6 +27,7 @@ jobs:
             --secret-id user_data/email_sender \
             --query SecretString \
             --output text | jq -r '.email')
+          echo "::add-mask::$EMAIL_SENDER"
           echo "EMAIL_SENDER=$EMAIL_SENDER" >> $GITHUB_ENV
           
           # Get EMAIL_PASSWORD
@@ -34,6 +35,7 @@ jobs:
             --secret-id user_data/password \
             --query SecretString \
             --output text | jq -r '.password')
+          echo "::add-mask::$EMAIL_PASSWORD"
           echo "EMAIL_PASSWORD=$EMAIL_PASSWORD" >> $GITHUB_ENV
           
           # Get EMAIL_RECIPIENT
@@ -41,8 +43,14 @@ jobs:
             --secret-id user_data/email \
             --query SecretString \
             --output text | jq -r '.email')
+          echo "::add-mask::$EMAIL_RECIPIENT"
           echo "EMAIL_RECIPIENT=$EMAIL_RECIPIENT" >> $GITHUB_ENV
 
+      - name: Debug AWS secrets
+        run: |
+          echo "EMAIL_SENDER is set: ${{ env.EMAIL_SENDER != '' }}"
+          echo "EMAIL_PASSWORD is set: ${{ env.EMAIL_PASSWORD != '' }}"
+          echo "EMAIL_RECIPIENT is set: ${{ env.EMAIL_RECIPIENT != '' }}"
           
       - name: Send email notification
         if: always()
