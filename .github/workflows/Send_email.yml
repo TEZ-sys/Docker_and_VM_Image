@@ -26,21 +26,21 @@ jobs:
           EMAIL_SENDER=$(aws secretsmanager get-secret-value \
             --secret-id user_data/email_sender \
             --query SecretString \
-            --output text)
+            --output text | jq -r '.email')
           echo "EMAIL_SENDER=$EMAIL_SENDER" >> $GITHUB_ENV
           
           # Get EMAIL_PASSWORD
           EMAIL_PASSWORD=$(aws secretsmanager get-secret-value \
             --secret-id user_data/password \
             --query SecretString \
-            --output text)
+            --output text | jq -r '.password')
           echo "EMAIL_PASSWORD=$EMAIL_PASSWORD" >> $GITHUB_ENV
           
           # Get EMAIL_RECIPIENT
           EMAIL_RECIPIENT=$(aws secretsmanager get-secret-value \
             --secret-id user_data/email \
             --query SecretString \
-            --output text)
+            --output text | jq -r '.email')
           echo "EMAIL_RECIPIENT=$EMAIL_RECIPIENT" >> $GITHUB_ENV
 
       - name: Debug AWS secrets
