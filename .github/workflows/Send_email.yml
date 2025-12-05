@@ -43,11 +43,6 @@ jobs:
             --output text | jq -r '.email')
           echo "EMAIL_RECIPIENT=$EMAIL_RECIPIENT" >> $GITHUB_ENV
 
-      - name: Debug AWS secrets
-        run: |
-          echo "EMAIL_SENDER is set: ${{ env.EMAIL_SENDER != '' }}"
-          echo "EMAIL_PASSWORD is set: ${{ env.EMAIL_PASSWORD != '' }}"
-          echo "EMAIL_RECIPIENT is set: ${{ env.EMAIL_RECIPIENT != '' }}"
           
       - name: Send email notification
         if: always()
