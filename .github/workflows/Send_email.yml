@@ -26,6 +26,9 @@ jobs:
             EMAIL_SENDER,user_data/email_sender
             EMAIL_PASSWORD,user_data/password
             EMAIL_RECIPIENT,user_data/email
+      - name: Debug AWS secrets
+        run: |
+          printenv | grep SECRET_
           
       - name: Send email notification
         if: always()
