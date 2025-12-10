@@ -33,43 +33,43 @@ jobs:
           BRANCH_NAME: ${{ github.ref_name }}
           RUN_NUMBER: ${{ github.run_number }}
           RUN_ID: ${{ github.run_id }}
-            run: |
-              # Sanitize branch name (replace / with -)
-              SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
-              
-              IMAGE_TAG=docker_image_${SAFE_BRANCH}_${RUN_NUMBER}_${RUN_ID}
-              echo "Using tag: $IMAGE_TAG"
-              
-              # Force unique digest using a build ID
-              BUILD_ID="${RUN_ID}-$(date +%s)"
-              echo "Build ID: $BUILD_ID"
-              
-              # Build the image with a unique digest ARG (optional metadata)
-              docker build \
-                --build-arg BUILD_ID="$BUILD_ID" \
-                -t "$IMAGE_TAG" \
-                .
-              
-              # Run the container using IMAGE_TAG (correct!)
-              docker run -d \
-                --name temp-name-container \
-                -p 8080:80 \
-                "$IMAGE_TAG"
-            
-              sleep 5
-            
-              curl http://localhost:8080
-            
-              docker stop temp-name-container
-              docker rm temp-name-container
-
+        run: |
+          # Sanitize branch name (replace / with -)
+          SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
+          
+          IMAGE_TAG=docker_image_${SAFE_BRANCH}_${RUN_NUMBER}_${RUN_ID}
+          echo "Using tag: $IMAGE_TAG"
+          
+          # Force unique digest using a build ID
+          BUILD_ID="${RUN_ID}-$(date +%s)"
+          echo "Build ID: $BUILD_ID"
+          
+          # Build the image with a unique digest ARG (optional metadata)
+          docker build \
+            --build-arg BUILD_ID="$BUILD_ID" \
+            -t "$IMAGE_TAG" \
+            .
+          
+          # Run the container using IMAGE_TAG (correct!)
+          docker run -d \
+            --name temp-name-container \
+            -p 8080:80 \
+            "$IMAGE_TAG"
+        
+          sleep 5
+        
+          curl http://localhost:8080
+        
+          docker stop temp-name-container
+          docker rm temp-name-container
+        
           # Push to PROD if main branch
           if [ "$SAFE_BRANCH" = "main" ]; then
             docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
             docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
           fi
-
           if [ "$SAFE_BRANCH" = "stage" ]; then
             docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
             docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
+          fi
           fi
