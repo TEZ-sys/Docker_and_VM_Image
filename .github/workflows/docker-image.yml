@@ -72,4 +72,4 @@ jobs:
             docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
             docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
           fi
-          fi
+          
