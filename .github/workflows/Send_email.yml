@@ -67,8 +67,8 @@ jobs:
           body: |
             Hello ${{ env.EMAIL_RECIPIENT }},
             
-            The build for ${{ github.repository }} on branch ${{ github.ref_name }}
-            has completed with status: ${{ job.status }}
+            The build for ${{ github.repository }} on branch ${{ github.ref_name }} has status ${{ job.status }} 
+            The workflow that ${{ job.status }} is ${{ github.workflow }}
             
             🔗 Run details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
             
