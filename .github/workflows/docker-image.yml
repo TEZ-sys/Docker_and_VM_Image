@@ -50,7 +50,7 @@ jobs:
             -t "$IMAGE_TAG" \
             .
           
-          if [ "$SAFE_BRANCH" = "stage" ]; then
+          if [ "$SAFE_BRANCH" = "main" ]; then
             docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
             docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
           fi
