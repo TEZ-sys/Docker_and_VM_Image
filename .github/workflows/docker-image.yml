@@ -55,8 +55,6 @@ jobs:
             docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
           fi
           
-      - name: Save image tag to artifact
-        run: |
           echo "$IMAGE_TAG" > image_tag.txt
       
       - name: Upload image tag artifact
