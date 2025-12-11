@@ -48,7 +48,7 @@ jobs:
           ECR_REPOSITORY_PROD: nebo_task
           ECR_REPOSITORY_STAGE: nebo_task_stage
           BRANCH_NAME: ${{ github.ref_name }}
-          TAG_IMAGE: ${{ steps.read-tag.outputs.tag }}
+          IMAGE_TAG: ${{ steps.read-tag.outputs.tag }}
         run: |
           #!/bin/bash
           echo "Using image tag: $TAG_IMAGE"
@@ -57,13 +57,13 @@ jobs:
           SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
           
           # Pull the image using TAG_IMAGE
-          docker pull ${{ secrets.STAGE_REPO_LINK }}:$IMAGE_TAG
+          docker pull "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
           
           # Run the container
           docker run -d \
             --name temp-name-container \
             -p 8080:80 \
-            ${{ secrets.STAGE_REPO_LINK }}:$IMAGE_TAG
+            "$IMAGE_TAG"
         
           sleep 5
         
