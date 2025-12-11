@@ -5,6 +5,10 @@ on:
     branches: [ "main", "stage", "dev-*" ]
   pull_request:
     branches: [ "main", "stage", "dev-*" ]
+  workflow_run:
+    workflows: ["Docker Image CI"]
+    types: 
+      - completed
 
 jobs:
   build:
@@ -34,17 +38,18 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           #!/bin/bash
+          echo "${{ github.event.workflow_run.id }}"
           # Sanitize branch name (replace / with -)
           SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
           
           IMAGE_TAG=docker_image_${SAFE_BRANCH}_${RUN_NUMBER}_${RUN_ID}
-          docker pull ${{ secrets.STAGE_REPO_LINK }}:$IMAGE_TAG
+          docker pull ${{ secrets.STAGE_REPO_LINK }}:${{ github.event.workflow_run.id }}
           
           # Run the container using IMAGE_TAG 
           docker run -d \
             --name temp-name-container \
             -p 8080:80 \
-            "$IMAGE_TAG"
+            "${{ github.event.workflow_run.id }}"
         
           sleep 5
         
