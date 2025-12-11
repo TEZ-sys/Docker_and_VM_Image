@@ -82,11 +82,11 @@ jobs:
           
           docker stop temp-name-container
           docker rm temp-name-container
-          
+          NEW_TAG="${IMAGE_TAG/main/stage}"
           # Push to PROD if main branch
           if [ "$SAFE_BRANCH" = "main" ]; then
-            docker tag ${{ secrets.STAGE_REPO_LINK }}:$TAG_IMAGE "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
-            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
+            docker tag "$NEW_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$NEW_TAG"
+            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$NEW_TAG"
           fi
           
 
