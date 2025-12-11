@@ -42,52 +42,61 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
       
-      - name: Pull and test Docker image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY_PROD: nebo_task
-          ECR_REPOSITORY_STAGE: nebo_task_stage
-          BRANCH_NAME: ${{ github.ref_name }}
-          IMAGE_TAG: ${{ steps.read-tag.outputs.tag }}
-        run: |
-          #!/bin/bash
-          echo "Using image tag: $TAG_IMAGE"
-          
-          # Sanitize branch name
-          SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
-          
-          # Pull the image using TAG_IMAGE
-          docker pull "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
-          
-          # Run the container
-          docker run -d \
-            --name temp-name-container \
-            -p 8080:80 \
-            "$IMAGE_TAG"
-        
-          sleep 5
-        
-          curl --fail http://localhost:8080
-          exit_status=$?
-          
-          if [ $exit_status -ne 0 ]; then
-            echo "Curl command failed with exit code $exit_status"
-            docker logs temp-name-container
-            docker stop temp-name-container
-            docker rm temp-name-container
-            exit $exit_status
-          else
-            echo "Curl command succeeded"
-          fi
-          
-          docker stop temp-name-container
-          docker rm temp-name-container
-          NEW_TAG="${IMAGE_TAG/main/stage}"
-          # Push to PROD if main branch
-          if [ "$SAFE_BRANCH" = "main" ]; then
-            docker tag "$NEW_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$NEW_TAG"
-            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$NEW_TAG"
-          fi
-          
+- name: Pull and test Docker image
+  env:
+    ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+    ECR_REPOSITORY_PROD: nebo_task
+    ECR_REPOSITORY_STAGE: nebo_task_stage
+    BRANCH_NAME: ${{ github.ref_name }}
+    IMAGE_TAG: ${{ steps.read-tag.outputs.tag }}
+  run: |
+    #!/bin/bash
+    echo "Using image tag: $IMAGE_TAG"
+    echo "ECR Registry: $ECR_REGISTRY"
+    echo "ECR Repository Stage: $ECR_REPOSITORY_STAGE"
+    
+    # Sanitize branch name
+    SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
+    
+    # Construct full image reference
+    FULL_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
+    echo "Full image reference: $FULL_IMAGE"
+    
+    # Pull the image
+    docker pull "$FULL_IMAGE"
+    
+    # Run the container with FULL image reference
+    docker run -d \
+      --name temp-name-container \
+      -p 8080:80 \
+      "$FULL_IMAGE"
+  
+    sleep 5
+  
+    curl --fail http://localhost:8080
+    exit_status=$?
+    
+    if [ $exit_status -ne 0 ]; then
+      echo "Curl command failed with exit code $exit_status"
+      docker logs temp-name-container
+      docker stop temp-name-container
+      docker rm temp-name-container
+      exit $exit_status
+    else
+      echo "Curl command succeeded"
+    fi
+    
+    docker stop temp-name-container
+    docker rm temp-name-container
+    
+    # Rename tag from main to stage
+    NEW_TAG="${IMAGE_TAG/main/stage}"
+    echo "New tag: $NEW_TAG"
+    
+    # Push to PROD if main branch
+    if [ "$SAFE_BRANCH" = "main" ]; then
+      docker tag "$FULL_IMAGE" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$NEW_TAG"
+      docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$NEW_TAG"
+    fi
 
           
