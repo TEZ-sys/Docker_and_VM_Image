@@ -50,26 +50,10 @@ jobs:
             -t "$IMAGE_TAG" \
             .
           
-          # Run the container using IMAGE_TAG (correct!)
-          docker run -d \
-            --name temp-name-container \
-            -p 8080:80 \
-            "$IMAGE_TAG"
-        
-          sleep 5
-        
-          curl http://localhost:8080
-        
-          docker stop temp-name-container
-          docker rm temp-name-container
-        
-          # Push to PROD if main branch
-          if [ "$SAFE_BRANCH" = "main" ]; then
-            docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
-            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
-          fi
           if [ "$SAFE_BRANCH" = "stage" ]; then
             docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
             docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
           fi
+          echo $IMAGE_TAG >> $GITHUB_OUTPUT
+          
           
