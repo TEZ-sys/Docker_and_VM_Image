@@ -1,0 +1,71 @@
+name: Unit Test
+
+on:
+  push:
+    branches: [ "main", "stage", "dev-*" ]
+  pull_request:
+    branches: [ "main", "stage", "dev-*" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY_PROD: nebo_task
+          ECR_REPOSITORY_STAGE: nebo_task_stage
+          BRANCH_NAME: ${{ github.ref_name }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          #!/bin/bash
+          # Sanitize branch name (replace / with -)
+          SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
+          
+          IMAGE_TAG=docker_image_${SAFE_BRANCH}_${RUN_NUMBER}_${RUN_ID}
+          docker pull ${{ secrets.STAGE_REPO_LINK }}:$IMAGE_TAG
+          
+          # Run the container using IMAGE_TAG 
+          docker run -d \
+            --name temp-name-container \
+            -p 8080:80 \
+            "$IMAGE_TAG"
+        
+          sleep 5
+        
+          curl --fail http://localhost:8080
+          error_status$?
+          
+          if [ $exit_status -ne 0 ]; then
+            echo "Curl command failed with exit code $exit_status"
+            exit $exit_status
+          else
+            echo "Curl command succeeded"
+          fi
+          
+          docker stop temp-name-container
+          docker rm temp-name-container
+          
+          # Push to PROD if main branch
+          if [ "$SAFE_BRANCH" = "main" ]; then
+            docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
+            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
+          fi
+          
+
+          
