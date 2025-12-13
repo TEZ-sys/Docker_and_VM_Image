@@ -23,17 +23,15 @@ jobs:
       - name: Log in to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-          
-      - name: Build, tag, and push Docker image
-        id: build
+
+      - name: Get latest image from ECR
+        id: get-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY_STAGE: nebo_task_stage
           BRANCH_NAME: ${{ github.ref_name }}
           RUN_NUMBER: ${{ github.run_number }}
           RUN_ID: ${{ github.run_id }}
-      - name: Get latest image from ECR
-        id: get-image
         run: |
           # Get the most recently pushed image
           LATEST_TAG=$(aws ecr describe-images \
@@ -43,7 +41,14 @@ jobs:
           
           echo "Latest image tag: $LATEST_TAG"
           echo "image-tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          
       - name: Deploy
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY_STAGE: nebo_task_stage
+          BRANCH_NAME: ${{ github.ref_name }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           LATEST_TAG=${{ steps.get-image.outputs.image-tag }}
           docker pull "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}"
