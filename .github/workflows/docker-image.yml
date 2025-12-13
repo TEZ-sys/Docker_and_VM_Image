@@ -30,7 +30,6 @@ jobs:
         env:
           ECR_REPOSITORY_STAGE: nebo_task_stage
         run: |
-          # Get the most recently pushed image with dev_ prefix
           LATEST_TAG=$(aws ecr describe-images \
             --repository-name $ECR_REPOSITORY_STAGE \
             --output json | \
@@ -61,17 +60,14 @@ jobs:
           echo "Pulling image: $ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}"
           docker pull "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}"
           
-          # Replace dev_ with stage_
           NEW_TAG="${LATEST_TAG/dev_/stage_}"
           
           echo "Creating new tag: $NEW_TAG"
-          # Fixed: tag the pulled image, not the new tag name
           docker tag "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$NEW_TAG"
           docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$NEW_TAG"
           
           echo "Successfully pushed: $NEW_TAG"
           echo "image-tag=$NEW_TAG" >> $GITHUB_OUTPUT
-      
   
   test:
     needs: build
