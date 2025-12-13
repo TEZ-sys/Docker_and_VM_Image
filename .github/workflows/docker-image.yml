@@ -32,22 +32,28 @@ jobs:
           BRANCH_NAME: ${{ github.ref_name }}
           RUN_NUMBER: ${{ github.run_number }}
           RUN_ID: ${{ github.run_id }}
+      - name: Get latest image from ECR
+        id: get-image
         run: |
-          SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
-          IMAGE_TAG=stage_${RUN_NUMBER}_${{ github.sha }}
+          # Get the most recently pushed image
+          LATEST_TAG=$(aws ecr describe-images \
+          --repository-name $ECR_REPOSITORY_STAGE \
+          --query "sort_by(imageDetails[?contains(imageTags, 'dev_')], &imagePushedAt)[-1].imageTags[?starts_with(@, 'dev_')] | [0]" \
+          --output text)
           
-          echo "Using tag: $IMAGE_TAG"
+          echo "Latest image tag: $LATEST_TAG"
+          echo "image-tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+      - name: Deploy
+        run: |
+          LATEST_TAG=${{ steps.get-image.outputs.image-tag }}
+          docker pull "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}"
+          NEW_TAG="${LATEST_TAG/dev/stage}"
           
-          docker build -t "$IMAGE_TAG" .
-          if [ "$SAFE_BRANCH" = "stage" ]; then
-            docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
-            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
-          fi
+          docker tag "$NEW_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$NEW_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$NEW_TAG"
+
           # Set output for next job/workflow
-          echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
-          
-          # Also save to artifact as backup
-          echo "$IMAGE_TAG" > image_tag.txt
+          echo "image-tag=$NEW_TAG" >> $GITHUB_OUTPUT
       
       - name: Set job output
         id: set-output
