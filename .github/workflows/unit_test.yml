@@ -48,13 +48,13 @@ jobs:
           #!/bin/bash
           echo "Using image tag: $IMAGE_TAG"
           echo "ECR Registry: $ECR_REGISTRY"
-          echo "ECR Repository Stage: $ECR_REPOSITORY_STAGE"
+          echo "ECR Repository Production: $ECR_REPOSITORY_PROD
           
           # Sanitize branch name
           SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
           
           # Construct full image reference
-          FULL_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
+          FULL_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
           echo "Full image reference: $FULL_IMAGE"
           
           # Pull the image
@@ -94,14 +94,13 @@ jobs:
             docker rm temp-name-container
             proceed_with_push="true"
       
-            # Rename tag from main to stage
-            NEW_TAG="${IMAGE_TAG/stage/release}"
+            NEW_TAG="${IMAGE_TAG/rc_/prod_}"
             echo "New tag: $NEW_TAG"
           fi
           
           
           # Push to PROD if main branch
-          if [[ "$SAFE_BRANCH" = "main" && "$proceed_with_push" = "true"  ]]; then
+          if [[ "$proceed_with_push" = "true"  ]]; then
             docker tag "$FULL_IMAGE" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$NEW_TAG"
             docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$NEW_TAG"
           fi
