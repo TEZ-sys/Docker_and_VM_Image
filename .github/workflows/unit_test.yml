@@ -50,9 +50,6 @@ jobs:
           echo "ECR Registry: $ECR_REGISTRY"
           echo "ECR Repository Stage: $ECR_REPOSITORY_STAGE"
           
-          # Sanitize branch name
-          SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
-          
           # Construct full image reference
           FULL_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
           echo "Full image reference: $FULL_IMAGE"
