@@ -6,7 +6,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
     
 RUN echo "<h1>Welcome to DevOps DDoS Protection System</h1>"  >> /var/www/html/index.html
-COPY math_test.py /usr/local/bin/test_math.py
+COPY math_test.py /usr/local/bin/math_test.py
 
 RUN chmod +x /usr/local/bin/math_test.py
 
