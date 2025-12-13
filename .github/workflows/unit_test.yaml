@@ -1,33 +1,29 @@
 name: Unit Test
-
 on:
-  push:
-    branches: [ "main", "stage", "dev-*" ]
-  pull_request:
-    branches: [ "main", "stage", "dev-*" ]
-  workflow_run:
-    workflows: ["Docker Image CI"]
-    types: 
-      - completed
+  workflow_call:
+    inputs:
+      image-tag:
+        required: true
+        type: string
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      AWS_REGION:
+        required: true
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download image tag artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: image-tag
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GH_TOKEN }}
       
-      - name: Read image tag
+      # No need to download artifact - use input directly
+      - name: Use image tag
         id: read-tag
         run: |
-          IMAGE_TAG=$(cat image_tag.txt)
+          IMAGE_TAG="${{ inputs.image-tag }}"
           echo "tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "Image tag: $IMAGE_TAG"
       
@@ -47,7 +43,6 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY_PROD: nebo_task
           ECR_REPOSITORY_STAGE: nebo_task_stage
-          BRANCH_NAME: ${{ github.ref_name }}
           IMAGE_TAG: ${{ steps.read-tag.outputs.tag }}
         run: |
           #!/bin/bash
