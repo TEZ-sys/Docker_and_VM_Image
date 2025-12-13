@@ -59,6 +59,12 @@ jobs:
         with:
           name: image-tag
           path: image_tag.txt
-
+          
+  test:
+    needs: build
+    uses: ./.github/workflows/unit_test.yml
+    with:
+      image-tag: ${{ needs.build.outputs.image-tag }}
+    secrets: inherit
           
           
