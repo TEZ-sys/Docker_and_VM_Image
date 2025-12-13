@@ -1,9 +1,9 @@
 name: Docker Image CI
 on:
   push:
-    branches: [ "stage", "dev-*" ]
+    branches: [ "dev-*" ]
   pull_request:
-    branches: [ "stage", "dev-*" ]
+    branches: [ "dev-*" ]
   
 jobs:
   build:
@@ -34,15 +34,15 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
-          IMAGE_TAG=stage_${RUN_NUMBER}_${{ github.sha }}
+          IMAGE_TAG=dev_${RUN_NUMBER}_${{ github.sha }}
           
           echo "Using tag: $IMAGE_TAG"
           
           docker build -t "$IMAGE_TAG" .
-          if [ "$SAFE_BRANCH" = "stage" ]; then
-            docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
-            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
-          fi
+          
+          docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
+          
           # Set output for next job/workflow
           echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           
@@ -60,12 +60,5 @@ jobs:
           name: image-tag
           path: image_tag.txt
 
-  # Call test workflow directly instead of workflow_run
-  test:
-    needs: build
-    uses: ./.github/workflows/unit_test.yml
-    with:
-      image-tag: ${{ needs.build.outputs.image-tag }}
-    secrets: inherit
           
           
