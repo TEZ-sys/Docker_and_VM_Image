@@ -9,10 +9,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      image-tag: ${{ steps.set-output.outputs.image-tag }}
+      image-tag: ${{ steps.deploy.outputs.image-tag }}
       
     steps:
       - uses: actions/checkout@v4
+      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -23,60 +24,58 @@ jobs:
       - name: Log in to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-
+      
       - name: Get latest image from ECR
         id: get-image
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY_STAGE: nebo_task_stage
-          BRANCH_NAME: ${{ github.ref_name }}
-          RUN_NUMBER: ${{ github.run_number }}
-          RUN_ID: ${{ github.run_id }}
         run: |
-          # Get the most recently pushed image
+          # Get the most recently pushed image with dev_ prefix
           LATEST_TAG=$(aws ecr describe-images \
-          --repository-name $ECR_REPOSITORY_STAGE \
-          --query "sort_by(imageDetails[?contains(imageTags, 'dev_')], &imagePushedAt)[-1].imageTags[?starts_with(@, 'dev_')] | [0]" \
-          --output text)
+            --repository-name $ECR_REPOSITORY_STAGE \
+            --output json | \
+            jq -r '.imageDetails | 
+              map(select(.imageTags != null)) | 
+              map(select(.imageTags[] | startswith("dev_"))) | 
+              sort_by(.imagePushedAt) | 
+              last | 
+              .imageTags[] | 
+              select(startswith("dev_"))' || echo "")
+          
+          if [ -z "$LATEST_TAG" ]; then
+            echo "ERROR: No dev_ image found in ECR"
+            exit 1
+          fi
           
           echo "Latest image tag: $LATEST_TAG"
           echo "image-tag=$LATEST_TAG" >> $GITHUB_OUTPUT
           
       - name: Deploy
+        id: deploy
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY_STAGE: nebo_task_stage
-          BRANCH_NAME: ${{ github.ref_name }}
-          RUN_NUMBER: ${{ github.run_number }}
-          RUN_ID: ${{ github.run_id }}
         run: |
-          LATEST_TAG=${{ steps.get-image.outputs.image-tag }}
-          docker pull "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}"
-          NEW_TAG="${LATEST_TAG/dev/stage}"
+          LATEST_TAG="${{ steps.get-image.outputs.image-tag }}"
           
-          docker tag "$NEW_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$NEW_TAG"
+          echo "Pulling image: $ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}"
+          docker pull "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}"
+          
+          # Replace dev_ with stage_
+          NEW_TAG="${LATEST_TAG/dev_/stage_}"
+          
+          echo "Creating new tag: $NEW_TAG"
+          # Fixed: tag the pulled image, not the new tag name
+          docker tag "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$NEW_TAG"
           docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$NEW_TAG"
-
-          # Set output for next job/workflow
+          
+          echo "Successfully pushed: $NEW_TAG"
           echo "image-tag=$NEW_TAG" >> $GITHUB_OUTPUT
       
-      - name: Set job output
-        id: set-output
-        run: |
-          echo "image-tag=${{ steps.build.outputs.image-tag }}" >> $GITHUB_OUTPUT
-      
-      - name: Upload image tag artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: image-tag
-          path: image_tag.txt
-
-  # Call test workflow directly instead of workflow_run
+  
   test:
     needs: build
     uses: ./.github/workflows/unit_test.yml
     with:
       image-tag: ${{ needs.build.outputs.image-tag }}
     secrets: inherit
-          
-          
