@@ -65,7 +65,7 @@ jobs:
   # Call test workflow directly instead of workflow_run
   test:
     needs: build
-    uses: ./.github/workflows/unit_test.yaml
+    uses: ./.github/workflows/unit_test.yml
     with:
       image-tag: ${{ needs.build.outputs.image-tag }}
     secrets: inherit
