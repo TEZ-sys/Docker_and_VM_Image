@@ -9,7 +9,7 @@ RUN echo "<h1>Welcome to DevOps DDoS Protection System</h1>"  >> /var/www/html/i
 COPY math_test.py /usr/local/bin/math_test.py
 
 RUN chmod +x /usr/local/bin/math_test.py
-RUN python3 -m pip install unittest
+
 ARG BUILD_ID
 LABEL build_id=$BUILD_ID
 EXPOSE 80
