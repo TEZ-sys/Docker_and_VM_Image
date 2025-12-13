@@ -22,7 +22,7 @@ jobs:
         with:
           name: image-tag
           run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_TOKEN }}
       
       - name: Read image tag
         id: read-tag
