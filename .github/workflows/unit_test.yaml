@@ -95,7 +95,7 @@ jobs:
             proceed_with_push="true"
       
             # Rename tag from main to stage
-            NEW_TAG="${IMAGE_TAG/main/stage}"
+            NEW_TAG="${IMAGE_TAG/stage/main}"
             echo "New tag: $NEW_TAG"
           fi
           
