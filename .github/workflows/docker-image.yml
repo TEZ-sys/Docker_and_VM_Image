@@ -34,7 +34,7 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
-          IMAGE_TAG=${SAFE_BRANCH}_${RUN_NUMBER}_${{ github.sha }}
+          IMAGE_TAG=Stage_${RUN_NUMBER}_${{ github.sha }}
           
           echo "Using tag: $IMAGE_TAG"
           
