@@ -18,8 +18,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      # No need to download artifact - use input directly
       - name: Use image tag
         id: read-tag
         run: |
@@ -44,7 +42,7 @@ jobs:
           ECR_REPOSITORY_PROD: nebo_task
           IMAGE_TAG: ${{ steps.read-tag.outputs.tag }}
         run: |
-          #!/bin/bash
+
           echo "Using image tag: $IMAGE_TAG"
           echo "ECR Registry: $ECR_REGISTRY"
           echo "ECR Repository Production: $ECR_REPOSITORY_PROD"
@@ -95,7 +93,6 @@ jobs:
           fi
           
           
-          # Push to PROD if main branch
           if [[ "$proceed_with_push" = "true"  ]]; then
             docker tag "$FULL_IMAGE" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$NEW_TAG"
             docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$NEW_TAG"
