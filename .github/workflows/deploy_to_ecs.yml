@@ -61,7 +61,6 @@ jobs:
       - name: Create ECS Task Execution Role if needed
         if: steps.check-role.outputs.exists == 'false'
         run: |
-          # Create trust policy
           cat > trust-policy.json << EOF
           {
             "Version": "2012-10-17",
@@ -77,26 +76,21 @@ jobs:
           }
           EOF
           
-          # Create role
           aws iam create-role \
             --role-name ecsTaskExecutionRole \
             --assume-role-policy-document file://trust-policy.json \
             --description "ECS Task Execution Role"
           
-          # Attach AWS managed policy
           aws iam attach-role-policy \
             --role-name ecsTaskExecutionRole \
             --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
           
           echo "✅ Created ecsTaskExecutionRole"
-          
-          # Wait a bit for role to propagate
           sleep 10
       
       - name: Get current task definition
         id: get-task-def
         run: |
-          # Try to get existing task definition
           if aws ecs describe-task-definition --task-definition ${{ inputs.service-name }} &> /dev/null; then
             echo "Task definition exists, retrieving..."
             aws ecs describe-task-definition \
@@ -108,7 +102,6 @@ jobs:
             echo "Task definition doesn't exist, will create new one"
             echo "exists=false" >> $GITHUB_OUTPUT
             
-            # Create initial task definition
             cat > task-definition.json << EOF
           {
             "family": "${{ inputs.service-name }}",
@@ -157,7 +150,6 @@ jobs:
           ECR_REPOSITORY: ${{ inputs.ecr-repository }}
           IMAGE_TAG: ${{ inputs.image-tag }}
         run: |
-          # Remove fields that can't be in register-task-definition
           NEW_TASK_DEF=$(cat task-definition.json | jq 'del(
             .taskDefinitionArn,
             .revision,
@@ -168,7 +160,6 @@ jobs:
             .registeredBy
           )')
           
-          # Update the image
           NEW_TASK_DEF=$(echo $NEW_TASK_DEF | jq \
             --arg IMAGE "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
             '.containerDefinitions[0].image = $IMAGE')
@@ -187,7 +178,55 @@ jobs:
           echo "revision=$REVISION" >> $GITHUB_OUTPUT
           echo "New task definition revision: $REVISION"
       
+      - name: Get VPC and Subnet information
+        id: vpc-info
+        run: |
+          # Get default VPC
+          VPC_ID=$(aws ec2 describe-vpcs --filters "Name=isDefault,Values=true" --query 'Vpcs[0].VpcId' --output text)
+          echo "vpc_id=$VPC_ID" >> $GITHUB_OUTPUT
+          
+          # Get subnets in default VPC
+          SUBNETS=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" --query 'Subnets[*].SubnetId' --output text | tr '\t' ',')
+          echo "subnets=$SUBNETS" >> $GITHUB_OUTPUT
+          
+          # Get default security group
+          SG_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$VPC_ID" "Name=group-name,Values=default" --query 'SecurityGroups[0].GroupId' --output text)
+          echo "security_group=$SG_ID" >> $GITHUB_OUTPUT
+          
+          echo "VPC ID: $VPC_ID"
+          echo "Subnets: $SUBNETS"
+          echo "Security Group: $SG_ID"
+      
+      - name: Check if ECS service exists
+        id: check-service
+        run: |
+          if aws ecs describe-services \
+            --cluster nebo-ecs-stage \
+            --services ${{ inputs.service-name }} \
+            --query 'services[0].status' \
+            --output text 2>/dev/null | grep -q "ACTIVE"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Service exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️  Service does not exist, will create it"
+          fi
+      
+      - name: Create ECS service if needed
+        if: steps.check-service.outputs.exists == 'false'
+        run: |
+          aws ecs create-service \
+            --cluster nebo-ecs-stage \
+            --service-name ${{ inputs.service-name }} \
+            --task-definition ${{ inputs.service-name }}:${{ steps.register-task-def.outputs.revision }} \
+            --desired-count 1 \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ steps.vpc-info.outputs.subnets }}],securityGroups=[${{ steps.vpc-info.outputs.security_group }}],assignPublicIp=ENABLED}"
+          
+          echo "✅ Created ECS service"
+      
       - name: Update ECS service
+        if: steps.check-service.outputs.exists == 'true'
         run: |
           aws ecs update-service \
             --cluster nebo-ecs-stage \
