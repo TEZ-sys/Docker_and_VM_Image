@@ -9,7 +9,7 @@ on:
       ecr-repository:
         required: false
         type: string
-        default: 'nebo-app'  # Change to your ECR repo name
+        default: 'nebo_task_stage'  # Change to your ECR repo name
       service-name:
         required: false
         type: string
