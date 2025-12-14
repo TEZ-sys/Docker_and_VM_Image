@@ -9,11 +9,11 @@ on:
       ecr-repository:
         required: false
         type: string
-        default: 'nebo_task_stage'  # Change to your ECR repo name
+        default: 'nebo_task_stage'
       service-name:
         required: false
         type: string
-        default: 'nebo-service-stage'  # Change to your service name
+        default: 'nebo-service-stage'
     secrets:
       AWS_ACCESS_KEY_ID:
         required: true
@@ -36,9 +36,62 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
       
+      - name: Get AWS Account ID
+        id: account
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "account_id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+          echo "AWS Account ID: $ACCOUNT_ID"
+      
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Check if ECS Task Execution Role exists
+        id: check-role
+        run: |
+          if aws iam get-role --role-name ecsTaskExecutionRole &> /dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ ecsTaskExecutionRole exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️  ecsTaskExecutionRole does not exist, will create it"
+          fi
+      
+      - name: Create ECS Task Execution Role if needed
+        if: steps.check-role.outputs.exists == 'false'
+        run: |
+          # Create trust policy
+          cat > trust-policy.json << EOF
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "ecs-tasks.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          }
+          EOF
+          
+          # Create role
+          aws iam create-role \
+            --role-name ecsTaskExecutionRole \
+            --assume-role-policy-document file://trust-policy.json \
+            --description "ECS Task Execution Role"
+          
+          # Attach AWS managed policy
+          aws iam attach-role-policy \
+            --role-name ecsTaskExecutionRole \
+            --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+          
+          echo "✅ Created ecsTaskExecutionRole"
+          
+          # Wait a bit for role to propagate
+          sleep 10
       
       - name: Get current task definition
         id: get-task-def
@@ -63,7 +116,7 @@ jobs:
             "requiresCompatibilities": ["FARGATE"],
             "cpu": "256",
             "memory": "512",
-            "executionRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole",
+            "executionRoleArn": "arn:aws:iam::${{ steps.account.outputs.account_id }}:role/ecsTaskExecutionRole",
             "containerDefinitions": [
               {
                 "name": "nebo-app",
