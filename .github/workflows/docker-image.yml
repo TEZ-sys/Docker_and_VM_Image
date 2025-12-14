@@ -60,7 +60,7 @@ jobs:
           echo "Pulling image: $ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}"
           docker pull "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}"
           
-          NEW_TAG="${LATEST_TAG/stage_/rc_}"
+          NEW_TAG="${LATEST_TAG/stage_/release_candidate_}"
           
           echo "Creating new tag: $NEW_TAG"
           docker tag "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$NEW_TAG"
