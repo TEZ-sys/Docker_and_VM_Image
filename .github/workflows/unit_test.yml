@@ -94,7 +94,7 @@ jobs:
             docker rm temp-name-container
             proceed_with_push="true"
       
-            NEW_TAG="${IMAGE_TAG/rc_/prod_}"
+            NEW_TAG="${IMAGE_TAG/release_candidate_/prod_}"
             echo "New tag: $NEW_TAG"
           fi
           
