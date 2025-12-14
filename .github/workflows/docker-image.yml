@@ -29,6 +29,7 @@ jobs:
         id: get-image
         env:
           ECR_REPOSITORY_STAGE: nebo_task_stage
+          
         run: |
           LATEST_TAG=$(aws ecr describe-images \
             --repository-name $ECR_REPOSITORY_STAGE \
@@ -54,6 +55,7 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY_STAGE: nebo_task_stage
+          ECR_REPOSITORY_PROD: nebo_task
         run: |
           LATEST_TAG="${{ steps.get-image.outputs.image-tag }}"
           
