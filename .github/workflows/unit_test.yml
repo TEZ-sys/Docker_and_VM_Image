@@ -95,5 +95,14 @@ jobs:
             echo "Test failed, exiting...."
             exit $exit_status
           fi
-
+ 
+  deploy-stage:
+    needs: test
+    if: github.ref == 'refs/heads/develop'
+    uses: ./.github/workflows/deploy_ecs.yml
+    with:
+      image-tag: ${{ needs.build.outputs.image-tag }}
+      ecr-repository: 'nebo_task_stage'
+      service-name: 'nebo-service-stage'
+    secrets: inherit
           
