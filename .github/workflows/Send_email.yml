@@ -2,7 +2,7 @@ name: Send email
 
 on:
   push:
-    branches: [ "stage" ]
+    branches: [ "Stage" ]
   workflow_run:
     workflows: ["Docker Image CI", "SonarQube Nebo-Testing", "Unit Test"]
     types: 
