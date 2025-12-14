@@ -16,10 +16,11 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ inputs.image-tag }}  # Pass through the image tag
     steps:
       - uses: actions/checkout@v4
       
-      # No need to download artifact - use input directly
       - name: Use image tag
         id: read-tag
         run: |
@@ -79,29 +80,23 @@ jobs:
           curl --fail http://localhost:8080
           curl_exit_code=$?
           
-          if [ $exit_status -ne 0 ]; then
-            echo "Curl command failed with exit code $exit_status"
+          if [ $curl_exit_code -ne 0 ]; then
+            echo "Curl command failed with exit code $curl_exit_code"
             docker logs temp-name-container
             docker stop temp-name-container
             docker rm temp-name-container
-            proceed_with_push="false"
+            exit $curl_exit_code
           else
             echo "Curl command succeeded"
             docker stop temp-name-container
             docker rm temp-name-container
-          fi
-
-          if [ "$proceed_with_push" = "false" ]; then
-            echo "Test failed, exiting...."
-            exit $exit_status
           fi
  
   deploy-stage:
     needs: test
     uses: ./.github/workflows/deploy_to_ecs.yml
     with:
-      image-tag: ${{ needs.build.outputs.image-tag }}
+      image-tag: ${{ needs.test.outputs.image-tag }}  # Changed from needs.build to needs.test
       ecr-repository: 'nebo_task_stage'
       service-name: 'nebo-service-stage'
     secrets: inherit
-          
