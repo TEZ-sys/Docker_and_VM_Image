@@ -1,0 +1,107 @@
+name: Deploy to ECS Stage
+
+on:
+  workflow_call:
+    inputs:
+      image-tag:
+        required: true
+        type: string
+      ecr-repository:
+        required: false
+        type: string
+        default: 'nebo-app'  # Change to your ECR repo name
+      service-name:
+        required: false
+        type: string
+        default: 'nebo-service-stage'  # Change to your service name
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      AWS_REGION:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Get current task definition
+        id: get-task-def
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ inputs.service-name }} \
+            --query 'taskDefinition' \
+            --output json > task-definition.json
+          
+          cat task-definition.json
+      
+      - name: Update task definition with new image
+        id: update-task-def
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ inputs.ecr-repository }}
+          IMAGE_TAG: ${{ inputs.image-tag }}
+        run: |
+          # Remove fields that can't be in register-task-definition
+          NEW_TASK_DEF=$(cat task-definition.json | jq 'del(
+            .taskDefinitionArn,
+            .revision,
+            .status,
+            .requiresAttributes,
+            .compatibilities,
+            .registeredAt,
+            .registeredBy
+          )')
+          
+          # Update the image
+          NEW_TASK_DEF=$(echo $NEW_TASK_DEF | jq \
+            --arg IMAGE "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            '.containerDefinitions[0].image = $IMAGE')
+          
+          echo "$NEW_TASK_DEF" > new-task-definition.json
+          cat new-task-definition.json
+      
+      - name: Register new task definition
+        id: register-task-def
+        run: |
+          REVISION=$(aws ecs register-task-definition \
+            --cli-input-json file://new-task-definition.json \
+            --query 'taskDefinition.revision' \
+            --output text)
+          
+          echo "revision=$REVISION" >> $GITHUB_OUTPUT
+          echo "New task definition revision: $REVISION"
+      
+      - name: Update ECS service
+        run: |
+          aws ecs update-service \
+            --cluster nebo-ecs-stage \
+            --service ${{ inputs.service-name }} \
+            --task-definition ${{ inputs.service-name }}:${{ steps.register-task-def.outputs.revision }} \
+            --force-new-deployment
+          
+          echo "✅ Deployment initiated for stage environment"
+      
+      - name: Wait for service stability
+        run: |
+          echo "Waiting for service to become stable..."
+          aws ecs wait services-stable \
+            --cluster nebo-ecs-stage \
+            --services ${{ inputs.service-name }}
+          
+          echo "✅ Service is stable"
