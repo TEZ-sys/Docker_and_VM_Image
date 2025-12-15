@@ -46,48 +46,7 @@ jobs:
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-      
-      - name: Check if ECS Task Execution Role exists
-        id: check-role
-        run: |
-          if aws iam get-role --role-name ecsTaskExecutionRole &> /dev/null; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "✅ ecsTaskExecutionRole exists"
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️  ecsTaskExecutionRole does not exist, will create it"
-          fi
-      
-      - name: Create ECS Task Execution Role if needed
-        if: steps.check-role.outputs.exists == 'false'
-        run: |
-          cat > trust-policy.json << EOF
-          {
-            "Version": "2012-10-17",
-            "Statement": [
-              {
-                "Effect": "Allow",
-                "Principal": {
-                  "Service": "ecs-tasks.amazonaws.com"
-                },
-                "Action": "sts:AssumeRole"
-              }
-            ]
-          }
-          EOF
-          
-          aws iam create-role \
-            --role-name ecsTaskExecutionRole \
-            --assume-role-policy-document file://trust-policy.json \
-            --description "ECS Task Execution Role"
-          
-          aws iam attach-role-policy \
-            --role-name ecsTaskExecutionRole \
-            --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
-          
-          echo "✅ Created ecsTaskExecutionRole"
-          sleep 10
-      
+              
       - name: Get current task definition
         id: get-task-def
         run: |
@@ -136,13 +95,7 @@ jobs:
           fi
           
           cat task-definition.json
-      
-      - name: Create CloudWatch log group if needed
-        if: steps.get-task-def.outputs.exists == 'false'
-        run: |
-          aws logs create-log-group \
-            --log-group-name /ecs/${{ inputs.service-name }} || true
-      
+            
       - name: Update task definition with new image
         id: update-task-def
         env:
@@ -209,21 +162,10 @@ jobs:
             echo "✅ Service exists"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️  Service does not exist, will create it"
+            echo "⚠️  Service does not exist"
+            exit 1
           fi
       
-      - name: Create ECS service if needed
-        if: steps.check-service.outputs.exists == 'false'
-        run: |
-          aws ecs create-service \
-            --cluster nebo-ecs-stage \
-            --service-name ${{ inputs.service-name }} \
-            --task-definition ${{ inputs.service-name }}:${{ steps.register-task-def.outputs.revision }} \
-            --desired-count 1 \
-            --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[${{ steps.vpc-info.outputs.subnets }}],securityGroups=[${{ steps.vpc-info.outputs.security_group }}],assignPublicIp=ENABLED}"
-          
-          echo "✅ Created ECS service"
       
       - name: Update ECS service
         if: steps.check-service.outputs.exists == 'true'
