@@ -148,27 +148,9 @@ jobs:
           
           echo "VPC ID: $VPC_ID"
           echo "Subnets: $SUBNETS"
-          echo "Security Group: $SG_ID"
-      
-      - name: Check if ECS service exists
-        id: check-service
-        run: |
-          if aws ecs describe-services \
-            --cluster nebo-ecs-stage \
-            --services ${{ inputs.service-name }} \
-            --query 'services[0].status' \
-            --output text 2>/dev/null | grep -q "ACTIVE"; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "✅ Service exists"
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️  Service does not exist"
-            exit 1
-          fi
-      
+          echo "Security Group: $SG_ID"     
       
       - name: Update ECS service
-        if: steps.check-service.outputs.exists == 'true'
         run: |
           aws ecs update-service \
             --cluster nebo-ecs-stage \
