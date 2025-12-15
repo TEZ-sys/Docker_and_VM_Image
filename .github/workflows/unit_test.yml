@@ -16,15 +16,18 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ inputs.image-tag }}  # Pass through the image tag
     steps:
       - uses: actions/checkout@v4
+      
       - name: Use image tag
         id: read-tag
         run: |
           IMAGE_TAG="${{ inputs.image-tag }}"
           echo "tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "Image tag: $IMAGE_TAG"
-      
+          
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -102,5 +105,13 @@ jobs:
             echo "Test failed, exiting...."
             exit $exit_status
           fi
-
+ 
+  deploy-stage:
+    needs: test
+    uses: ./.github/workflows/deploy_to_ecs.yml
+    with:
+      image-tag: ${{ needs.test.outputs.image-tag }}  # Changed from needs.build to needs.test
+      ecr-repository: 'nebo_task'
+      service-name: 'nebo-service-prod'
+    secrets: inherit
           
