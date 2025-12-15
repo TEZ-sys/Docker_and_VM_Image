@@ -1,0 +1,246 @@
+name: Deploy to ECS Prod
+
+on:
+  workflow_call:
+    inputs:
+      image-tag:
+        required: true
+        type: string
+      ecr-repository:
+        required: false
+        type: string
+        default: 'nebo_task'
+      service-name:
+        required: false
+        type: string
+        default: 'nebo-service-prod'
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      AWS_REGION:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Get AWS Account ID
+        id: account
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "account_id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+          echo "AWS Account ID: $ACCOUNT_ID"
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Check if ECS Task Execution Role exists
+        id: check-role
+        run: |
+          if aws iam get-role --role-name ecsTaskExecutionRole &> /dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ ecsTaskExecutionRole exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️  ecsTaskExecutionRole does not exist, will create it"
+          fi
+      
+      - name: Create ECS Task Execution Role if needed
+        if: steps.check-role.outputs.exists == 'false'
+        run: |
+          cat > trust-policy.json << EOF
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "ecs-tasks.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          }
+          EOF
+          
+          aws iam create-role \
+            --role-name ecsTaskExecutionRole \
+            --assume-role-policy-document file://trust-policy.json \
+            --description "ECS Task Execution Role"
+          
+          aws iam attach-role-policy \
+            --role-name ecsTaskExecutionRole \
+            --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+          
+          echo "✅ Created ecsTaskExecutionRole"
+          sleep 10
+      
+      - name: Get current task definition
+        id: get-task-def
+        run: |
+          if aws ecs describe-task-definition --task-definition ${{ inputs.service-name }} &> /dev/null; then
+            echo "Task definition exists, retrieving..."
+            aws ecs describe-task-definition \
+              --task-definition ${{ inputs.service-name }} \
+              --query 'taskDefinition' \
+              --output json > task-definition.json
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Task definition doesn't exist, will create new one"
+            echo "exists=false" >> $GITHUB_OUTPUT
+            
+            cat > task-definition.json << EOF
+          {
+            "family": "${{ inputs.service-name }}",
+            "networkMode": "awsvpc",
+            "requiresCompatibilities": ["FARGATE"],
+            "cpu": "256",
+            "memory": "512",
+            "executionRoleArn": "arn:aws:iam::${{ steps.account.outputs.account_id }}:role/ecsTaskExecutionRole",
+            "containerDefinitions": [
+              {
+                "name": "nebo-app",
+                "image": "${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr-repository }}:${{ inputs.image-tag }}",
+                "essential": true,
+                "portMappings": [
+                  {
+                    "containerPort": 3000,
+                    "protocol": "tcp"
+                  }
+                ],
+                "logConfiguration": {
+                  "logDriver": "awslogs",
+                  "options": {
+                    "awslogs-group": "/ecs/${{ inputs.service-name }}",
+                    "awslogs-region": "${{ secrets.AWS_REGION }}",
+                    "awslogs-stream-prefix": "ecs"
+                  }
+                }
+              }
+            ]
+          }
+          EOF
+          fi
+          
+          cat task-definition.json
+      
+      - name: Create CloudWatch log group if needed
+        if: steps.get-task-def.outputs.exists == 'false'
+        run: |
+          aws logs create-log-group \
+            --log-group-name /ecs/${{ inputs.service-name }} || true
+      
+      - name: Update task definition with new image
+        id: update-task-def
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ inputs.ecr-repository }}
+          IMAGE_TAG: ${{ inputs.image-tag }}
+        run: |
+          NEW_TASK_DEF=$(cat task-definition.json | jq 'del(
+            .taskDefinitionArn,
+            .revision,
+            .status,
+            .requiresAttributes,
+            .compatibilities,
+            .registeredAt,
+            .registeredBy
+          )')
+          
+          NEW_TASK_DEF=$(echo $NEW_TASK_DEF | jq \
+            --arg IMAGE "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            '.containerDefinitions[0].image = $IMAGE')
+          
+          echo "$NEW_TASK_DEF" > new-task-definition.json
+          cat new-task-definition.json
+      
+      - name: Register new task definition
+        id: register-task-def
+        run: |
+          REVISION=$(aws ecs register-task-definition \
+            --cli-input-json file://new-task-definition.json \
+            --query 'taskDefinition.revision' \
+            --output text)
+          
+          echo "revision=$REVISION" >> $GITHUB_OUTPUT
+          echo "New task definition revision: $REVISION"
+      
+      - name: Get VPC and Subnet information
+        id: vpc-info
+        run: |
+          # Get default VPC
+          VPC_ID=$(aws ec2 describe-vpcs --filters "Name=isDefault,Values=true" --query 'Vpcs[0].VpcId' --output text)
+          echo "vpc_id=$VPC_ID" >> $GITHUB_OUTPUT
+          
+          # Get subnets in default VPC
+          SUBNETS=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" --query 'Subnets[*].SubnetId' --output text | tr '\t' ',')
+          echo "subnets=$SUBNETS" >> $GITHUB_OUTPUT
+          
+          # Get default security group
+          SG_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$VPC_ID" "Name=group-name,Values=default" --query 'SecurityGroups[0].GroupId' --output text)
+          echo "security_group=$SG_ID" >> $GITHUB_OUTPUT
+          
+          echo "VPC ID: $VPC_ID"
+          echo "Subnets: $SUBNETS"
+          echo "Security Group: $SG_ID"
+      
+      - name: Check if ECS service exists
+        id: check-service
+        run: |
+          if aws ecs describe-services \
+            --cluster nebo-ecs-prod \
+            --services ${{ inputs.service-name }} \
+            --query 'services[0].status' \
+            --output text 2>/dev/null | grep -q "ACTIVE"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Service exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️  Service does not exist, will create it"
+          fi
+      
+      - name: Create ECS service if needed
+        if: steps.check-service.outputs.exists == 'false'
+        run: |
+          aws ecs create-service \
+            --cluster nebo-ecs-prod \
+            --service-name ${{ inputs.service-name }} \
+            --task-definition ${{ inputs.service-name }}:${{ steps.register-task-def.outputs.revision }} \
+            --desired-count 1 \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ steps.vpc-info.outputs.subnets }}],securityGroups=[${{ steps.vpc-info.outputs.security_group }}],assignPublicIp=ENABLED}"
+          
+          echo "✅ Created ECS service"
+      
+      - name: Update ECS service
+        if: steps.check-service.outputs.exists == 'true'
+        run: |
+          aws ecs update-service \
+            --cluster nebo-ecs-prod \
+            --service ${{ inputs.service-name }} \
+            --task-definition ${{ inputs.service-name }}:${{ steps.register-task-def.outputs.revision }} \
+            --force-new-deployment
+          
+          echo "✅ Deployment initiated for Prod environment"
+      
+      - name: Wait for service stability
+        run: |
+          echo "Waiting for service to become stable..."
+          aws ecs wait services-stable \
+            --cluster nebo-ecs-prod \
+            --services ${{ inputs.service-name }}
+          
+          echo "✅ Service is stable"
