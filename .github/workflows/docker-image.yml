@@ -1,26 +1,28 @@
 name: Docker Image CI
 on:
   push:
-    branches: [ "Stage" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "Stage" ]
+    branches: [ "main" ]
   
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions: 
+      id-token: write
+      contents: read
     outputs:
       image-tag: ${{ steps.deploy.outputs.image-tag }}
-      
     steps:
       - uses: actions/checkout@v4
+      
       
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-      
+          role-to-assume: arn:aws:iam::640786919619:role/Github-Ci-CD
+          aws-region: eu-west-2
+
       - name: Log in to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -29,17 +31,18 @@ jobs:
         id: get-image
         env:
           ECR_REPOSITORY_STAGE: nebo_task_stage
+          
         run: |
           LATEST_TAG=$(aws ecr describe-images \
             --repository-name $ECR_REPOSITORY_STAGE \
             --output json | \
             jq -r '.imageDetails | 
               map(select(.imageTags != null)) | 
-              map(select(.imageTags[] | startswith("dev_"))) | 
+              map(select(.imageTags[] | startswith("stage_"))) | 
               sort_by(.imagePushedAt) | 
               last | 
               .imageTags[] | 
-              select(startswith("dev_"))' || echo "")
+              select(startswith("stage_"))' || echo "")
           
           if [ -z "$LATEST_TAG" ]; then
             echo "ERROR: No dev_ image found in ECR"
@@ -54,24 +57,29 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY_STAGE: nebo_task_stage
+          ECR_REPOSITORY_PROD: nebo_task
         run: |
           LATEST_TAG="${{ steps.get-image.outputs.image-tag }}"
           
           echo "Pulling image: $ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}"
           docker pull "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}"
           
-          NEW_TAG="${LATEST_TAG/dev_/stage_}"
+          NEW_TAG="${LATEST_TAG/stage_/release_candidate_}"
           
           echo "Creating new tag: $NEW_TAG"
-          docker tag "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$NEW_TAG"
-          docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$NEW_TAG"
+          docker tag "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$NEW_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$NEW_TAG"
           
           echo "Successfully pushed: $NEW_TAG"
           echo "image-tag=$NEW_TAG" >> $GITHUB_OUTPUT
   
   test:
     needs: build
+    permissions:
+      id-token: write
+      contents: read
     uses: ./.github/workflows/unit_test.yml
     with:
       image-tag: ${{ needs.build.outputs.image-tag }}
+      aws-role-arn: arn:aws:iam::640786919619:role/Github-Ci-CD
     secrets: inherit
