@@ -50,6 +50,7 @@ jobs:
           fi
           
           echo "Latest image tag: $LATEST_TAG"
+          #
           echo "image-tag=$LATEST_TAG" >> $GITHUB_OUTPUT
           
       - name: Deploy
