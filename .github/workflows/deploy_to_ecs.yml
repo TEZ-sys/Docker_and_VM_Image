@@ -1,4 +1,4 @@
-name: Deploy to ECS Prod
+name: Deploy to ECS Stage
 
 on:
   workflow_call:
@@ -16,11 +16,11 @@ on:
       ecr-repository:
         required: false
         type: string
-        default: 'nebo_task'
+        default: 'nebo_task_stage'
       service-name:
         required: false
         type: string
-        default: 'nebo-service-prod'
+        default: 'nebo-service-stage'
 
 
 jobs:
@@ -65,45 +65,21 @@ jobs:
           echo "revision=$REVISION" >> $GITHUB_OUTPUT
           echo "New revision: $REVISION"
       
-      - name: Check service status
+      - name: Check if service exists
         id: check-service
         run: |
-          SERVICE_STATUS=$(aws ecs describe-services \
-            --cluster nebo-ecs-prod \
+          if aws ecs describe-services \
+            --cluster nebo-ecs-stage \
             --services ${{ inputs.service-name }} \
             --query 'services[0].status' \
-            --output text 2>/dev/null || echo "NONE")
-          
-          echo "status=$SERVICE_STATUS" >> $GITHUB_OUTPUT
-          echo "Service status: $SERVICE_STATUS"
-          
-          if [ "$SERVICE_STATUS" == "ACTIVE" ]; then
+            --output text 2>/dev/null | grep -q "ACTIVE"; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "needs_create=false" >> $GITHUB_OUTPUT
-          elif [ "$SERVICE_STATUS" == "NONE" ]; then
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "needs_create=true" >> $GITHUB_OUTPUT
           else
-            # Service exists but not ACTIVE (DRAINING, INACTIVE, etc.)
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "needs_create=true" >> $GITHUB_OUTPUT
-            echo "⚠️  Service exists but is $SERVICE_STATUS - will delete and recreate"
+            echo "exists=false" >> $GITHUB_OUTPUT
           fi
       
-      - name: Delete inactive service
-        if: steps.check-service.outputs.exists == 'true' && steps.check-service.outputs.needs_create == 'true'
-        run: |
-          echo "Deleting inactive service..."
-          aws ecs delete-service \
-            --cluster nebo-ecs-prod \
-            --service ${{ inputs.service-name }} \
-            --force || true
-          
-          echo "Waiting for service deletion..."
-          sleep 10
-      
-      - name: Get VPC info (only if creating service)
-        if: steps.check-service.outputs.needs_create == 'true'
+      - name: Get VPC info (only if service doesn't exist)
+        if: steps.check-service.outputs.exists == 'false'
         id: vpc-info
         run: |
           VPC_ID=$(aws ec2 describe-vpcs --filters "Name=isDefault,Values=true" --query 'Vpcs[0].VpcId' --output text)
@@ -113,24 +89,25 @@ jobs:
           echo "subnets=$SUBNETS" >> $GITHUB_OUTPUT
           echo "security_group=$SG_ID" >> $GITHUB_OUTPUT
       
-      - name: Create service
-        if: steps.check-service.outputs.needs_create == 'true'
+      
+      - name: Create service (first deployment)
+        if: steps.check-service.outputs.exists == 'false'
         run: |
-          echo "Creating service..."
+          echo "Creating new service..."
           aws ecs create-service \
-            --cluster nebo-ecs-prod \
+            --cluster nebo-ecs-stage \
             --service-name ${{ inputs.service-name }} \
             --task-definition ${{ inputs.service-name }}:${{ steps.register.outputs.revision }} \
             --desired-count 1 \
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[${{ steps.vpc-info.outputs.subnets }}],securityGroups=[${{ steps.vpc-info.outputs.security_group }}],assignPublicIp=ENABLED}"
       
-      - name: Update service
-        if: steps.check-service.outputs.exists == 'true' && steps.check-service.outputs.needs_create == 'false'
+      - name: Update service (subsequent deployments)
+        if: steps.check-service.outputs.exists == 'true'
         run: |
           echo "Updating existing service..."
           aws ecs update-service \
-            --cluster nebo-ecs-prod \
+            --cluster nebo-ecs-stage \
             --service ${{ inputs.service-name }} \
             --task-definition ${{ inputs.service-name }}:${{ steps.register.outputs.revision }} \
             --force-new-deployment
@@ -139,7 +116,7 @@ jobs:
         run: |
           echo "Waiting for deployment to complete..."
           aws ecs wait services-stable \
-            --cluster nebo-ecs-prod \
+            --cluster nebo-ecs-stage \
             --services ${{ inputs.service-name }}
           
-          echo "✅ Deployed ${{ inputs.ecr-repository }}:${{ inputs.image-tag }} to production"
+          echo "✅ Deployed ${{ inputs.ecr-repository }}:${{ inputs.image-tag }}"
