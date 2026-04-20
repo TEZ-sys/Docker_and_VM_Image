@@ -44,6 +44,8 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY_PROD: nebo_task
+          # ADD THIS LINE: It was missing in the env block but used in the script
+          ECR_REPOSITORY_STAGE: nebo_task_stage
           IMAGE_TAG: ${{ steps.read-tag.outputs.tag }}
         run: |
           #!/bin/bash
@@ -52,6 +54,7 @@ jobs:
           echo "ECR Repository Stage: $ECR_REPOSITORY_STAGE"
           
           # Construct full image reference
+          # This will now correctly evaluate to ...amazonaws.com/nebo_task_stage:stage_...
           FULL_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
           echo "Full image reference: $FULL_IMAGE"
           
