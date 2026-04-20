@@ -2,59 +2,58 @@ name: Unit Test
 on:
   workflow_call:
     inputs:
+      aws-role-arn:           # ADD this input
+        required: true
+        type: string
+      aws-region:
+        required: false
+        type: string
+        default: 'eu-west-2'
       image-tag:
         required: true
         type: string
-    secrets:
-      AWS_ACCESS_KEY_ID:
-        required: true
-      AWS_SECRET_ACCESS_KEY:
-        required: true
-      AWS_REGION:
-        required: true
+
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ inputs.image-tag }}
+      prod-tag: ${{ steps.test-image.outputs.prod-tag }}
     steps:
       - uses: actions/checkout@v4
       
-      # No need to download artifact - use input directly
       - name: Use image tag
         id: read-tag
         run: |
           IMAGE_TAG="${{ inputs.image-tag }}"
           echo "tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "Image tag: $IMAGE_TAG"
-      
+          
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ inputs.aws-role-arn }}
+          aws-region: ${{ inputs.aws-region }}
       
       - name: Log in to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
       
       - name: Pull and test Docker image
+        id: test-image  
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY_PROD: nebo_task
-          ECR_REPOSITORY_STAGE: nebo_task_stage
           IMAGE_TAG: ${{ steps.read-tag.outputs.tag }}
         run: |
-          #!/bin/bash
+
           echo "Using image tag: $IMAGE_TAG"
           echo "ECR Registry: $ECR_REGISTRY"
-          echo "ECR Repository Stage: $ECR_REPOSITORY_STAGE"
-          
-          # Sanitize branch name
-          SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
+          echo "ECR Repository Production: $ECR_REPOSITORY_PROD"
           
           # Construct full image reference
-          FULL_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
+          FULL_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
           echo "Full image reference: $FULL_IMAGE"
           
           # Pull the image
@@ -80,7 +79,7 @@ jobs:
           sleep 5
           
           curl --fail http://localhost:8080
-          curl_exit_code=$?
+          exit_status=$?
           
           if [ $exit_status -ne 0 ]; then
             echo "Curl command failed with exit code $exit_status"
@@ -92,11 +91,35 @@ jobs:
             echo "Curl command succeeded"
             docker stop temp-name-container
             docker rm temp-name-container
+            proceed_with_push="true"
+      
+            NEW_TAG="${IMAGE_TAG/release_candidate_/prod_}"
+            echo "New tag: $NEW_TAG"
           fi
-
+          
+          
+          if [[ "$proceed_with_push" = "true" ]]; then
+            docker tag "$FULL_IMAGE" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$NEW_TAG"
+            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$NEW_TAG"
+            echo "prod-tag=$NEW_TAG" >> $GITHUB_OUTPUT
+          fi
+      
           if [ "$proceed_with_push" = "false" ]; then
             echo "Test failed, exiting...."
             exit $exit_status
           fi
-
+ 
+  deploy-stage:
+    needs: test
+    if: ${{ needs.test.outputs.prod-tag != '' }}
+    permissions:
+      id-token: write
+      contents: read 
+    uses: ./.github/workflows/deploy_to_ecs.yml
+    with:
+      aws-role-arn: arn:aws:iam::640786919619:role/Github-Ci-CD
+      aws-region: 'eu-west-2'
+      image-tag: ${{ needs.test.outputs.prod-tag }}
+      ecr-repository: 'nebo_task'
+      service-name: 'nebo-service-prod'
           
