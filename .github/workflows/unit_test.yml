@@ -45,15 +45,19 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY_PROD: nebo_task
+          ECR_REPOSITORY_STAGE: nebo_task_stage
           IMAGE_TAG: ${{ steps.read-tag.outputs.tag }}
         run: |
-
+          #!/bin/bash
           echo "Using image tag: $IMAGE_TAG"
           echo "ECR Registry: $ECR_REGISTRY"
-          echo "ECR Repository Production: $ECR_REPOSITORY_PROD"
+          echo "ECR Repository Stage: $ECR_REPOSITORY_STAGE"
+          
+          # Sanitize branch name
+          SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
           
           # Construct full image reference
-          FULL_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$IMAGE_TAG"
+          FULL_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$IMAGE_TAG"
           echo "Full image reference: $FULL_IMAGE"
           
           # Pull the image
@@ -91,35 +95,9 @@ jobs:
             echo "Curl command succeeded"
             docker stop temp-name-container
             docker rm temp-name-container
-            proceed_with_push="true"
-      
-            NEW_TAG="${IMAGE_TAG/release_candidate_/prod_}"
-            echo "New tag: $NEW_TAG"
-          fi
-          
-          
-          if [[ "$proceed_with_push" = "true" ]]; then
-            docker tag "$FULL_IMAGE" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$NEW_TAG"
-            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$NEW_TAG"
-            echo "prod-tag=$NEW_TAG" >> $GITHUB_OUTPUT
           fi
       
           if [ "$proceed_with_push" = "false" ]; then
             echo "Test failed, exiting...."
             exit $exit_status
           fi
- 
-  deploy-stage:
-    needs: test
-    if: ${{ needs.test.outputs.prod-tag != '' }}
-    permissions:
-      id-token: write
-      contents: read 
-    uses: ./.github/workflows/deploy_to_ecs.yml
-    with:
-      aws-role-arn: arn:aws:iam::640786919619:role/Github-Ci-CD
-      aws-region: 'eu-west-2'
-      image-tag: ${{ needs.test.outputs.prod-tag }}
-      ecr-repository: 'nebo_task'
-      service-name: 'nebo-service-prod'
-          
