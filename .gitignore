@@ -1,0 +1,34 @@
+# --- General ---
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+*.log
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+venv/
+ENV/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# --- Docker ---
+.docker/
+# Ignore local override files
+docker-compose.override.yml
+
+# --- AWS ---
+# Ignore local AWS CLI configs that might contain credentials
+.aws/
+credentials
+config
+
+# --- Project Specific ---
+# Ignore the temporary file used in your docker-image workflow
+image_tag.txt
