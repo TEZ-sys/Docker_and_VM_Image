@@ -17,9 +17,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     outputs:
       image-tag: ${{ inputs.image-tag }}
       prod-tag: ${{ steps.test-image.outputs.prod-tag }}
@@ -114,7 +111,10 @@ jobs:
  
   deploy-stage:
     needs: test
-    if: ${{ needs.test.outputs.prod-tag != '' }} 
+    if: ${{ needs.test.outputs.prod-tag != '' }}
+    permissions:
+      id-token: write
+      contents: read 
     uses: ./.github/workflows/deploy_to_ecs.yml
     with:
       aws-role-arn: arn:aws:iam::640786919619:role/Github-Ci-CD
