@@ -83,3 +83,4 @@ jobs:
       image-tag: ${{ needs.build.outputs.image-tag }}
       aws-role-arn: arn:aws:iam::640786919619:role/Github-Ci-CD
     secrets: inherit
+#
