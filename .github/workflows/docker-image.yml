@@ -1,9 +1,9 @@
 name: Docker Image CI
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "Stage" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "Stage" ]
   
 jobs:
   build:
@@ -38,11 +38,11 @@ jobs:
             --output json | \
             jq -r '.imageDetails | 
               map(select(.imageTags != null)) | 
-              map(select(.imageTags[] | startswith("stage_"))) | 
+              map(select(.imageTags[] | startswith("dev_"))) | 
               sort_by(.imagePushedAt) | 
               last | 
               .imageTags[] | 
-              select(startswith("stage_"))' || echo "")
+              select(startswith("dev_"))' || echo "")
           
           if [ -z "$LATEST_TAG" ]; then
             echo "ERROR: No dev_ image found in ECR"
@@ -64,11 +64,11 @@ jobs:
           echo "Pulling image: $ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}"
           docker pull "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}"
           
-          NEW_TAG="${LATEST_TAG/stage_/release_candidate_}"
+          NEW_TAG="${LATEST_TAG/dev_/stage_}"
           
           echo "Creating new tag: $NEW_TAG"
-          docker tag "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}" "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$NEW_TAG"
-          docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PROD:$NEW_TAG"
+          docker tag "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:${LATEST_TAG}" "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$NEW_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY_STAGE:$NEW_TAG"
           
           echo "Successfully pushed: $NEW_TAG"
           echo "image-tag=$NEW_TAG" >> $GITHUB_OUTPUT
