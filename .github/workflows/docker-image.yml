@@ -74,30 +74,28 @@ jobs:
           echo "Successfully pushed: $NEW_TAG"
           echo "image-tag=$NEW_TAG" >> $GITHUB_OUTPUT
 
-      - name: Scan ECR Image
+      - name: ECR Image Scan & Enforcement
+        id: scan
         env:
           ECR_REPOSITORY_PROD: nebo_task
         run: |
           NEW_TAG="${{ steps.deploy.outputs.image-tag }}"
           
-          echo "Checking scan status for $ECR_REPOSITORY_PROD:$NEW_TAG"
-          
-          # Try to start a scan, but don't fail if it's already been scanned recently
-          aws ecr start-image-scan --repository-name $ECR_REPOSITORY_PROD --image-id imageTag=$NEW_TAG || echo "Scan already triggered or quota met, proceeding to check results."
+          echo "Checking vulnerabilities for: $NEW_TAG"
 
-          # Wait for whatever scan is currently running (or the one that just finished)
+          aws ecr start-image-scan --repository-name $ECR_REPOSITORY_PROD --image-id imageTag=$NEW_TAG || true
+          
           aws ecr wait image-scan-complete --repository-name $ECR_REPOSITORY_PROD --image-id imageTag=$NEW_TAG
           
-          # Fetch the results
-          SCAN_FINDINGS=$(aws ecr describe-image-scan-findings --repository-name $ECR_REPOSITORY_PROD --image-id imageTag=$NEW_TAG)
+          FINDINGS=$(aws ecr describe-image-scan-findings --repository-name $ECR_REPOSITORY_PROD --image-id imageTag=$NEW_TAG)
           
-          CRITICAL_COUNT=$(echo $SCAN_FINDINGS | jq '.imageScanFindings.findingSeverityCounts.CRITICAL // 0')
-          HIGH_COUNT=$(echo $SCAN_FINDINGS | jq '.imageScanFindings.findingSeverityCounts.HIGH // 0')
+          CRITICAL=$(echo $FINDINGS | jq '.imageScanFindings.findingSeverityCounts.CRITICAL // 0')
+          HIGH=$(echo $FINDINGS | jq '.imageScanFindings.findingSeverityCounts.HIGH // 0')
+          
+          echo "Scan Summary: $CRITICAL Critical, $HIGH High vulnerabilities found."
 
-          echo "Scan results: Critical: $CRITICAL_COUNT, High: $HIGH_COUNT"
-
-          if [ "$CRITICAL_COUNT" -gt 0 ]; then
-            echo "CRITICAL vulnerabilities detected. Stopping pipeline."
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "::error::Pipeline failed due to $CRITICAL critical vulnerabilities in ECR image."
             exit 1
           fi
   
