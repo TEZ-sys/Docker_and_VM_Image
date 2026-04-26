@@ -1,8 +1,8 @@
-name: SonarQube Nebo-Testing
+name: Security Tests (SonarQube, Bandit)
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
+  workflow_dispatch:
 
   pull_request:
     types: [opened, synchronize, reopened]
@@ -14,8 +14,25 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          
+
+            
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          
+  bandit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install bandit
+      - run: bandit -r . -ll -f json -o bandit-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+          
+
