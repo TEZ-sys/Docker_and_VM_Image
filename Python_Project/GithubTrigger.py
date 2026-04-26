@@ -6,11 +6,11 @@ import time
 logger = logging.getLogger(__name__)
 
 class GitHubClient:
-    def __init__(self, dry_run: bool = False):
-        self.token = os.getenv("GITHUB_TOKEN")
-        self.repo = os.getenv("GITHUB_REPO")
-        self.workflow = os.getenv("GITHUB_WORKFLOW")
-        self.branch = os.getenv("GITHUB_REF", "main")
+    def __init__(self, token: str, repo: str, workflow: str, branch: str = "main", dry_run: bool = False):
+        self.token = token
+        self.repo = repo
+        self.workflow = workflow
+        self.branch = branch
         self.dry_run = dry_run
         self.base_url = f"https://api.github.com/repos/{self.repo}"
         self.headers = {
