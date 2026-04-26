@@ -17,7 +17,7 @@ jobs:
     
     steps:
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
         with:
           role-to-assume: arn:aws:iam::640786919619:role/Github-Ci-CD
           aws-region: eu-west-2
@@ -57,7 +57,7 @@ jobs:
           
       - name: Send email notification
         if: always()
-        uses: dawidd6/action-send-mail@v3
+        uses: dawidd6/action-send-mail@d454bfb9c8f380ebb5b4f5e45b4b0b16c34e5aad 
         with:
           server_address: smtp.gmail.com
           server_port: 465
