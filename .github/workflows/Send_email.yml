@@ -57,7 +57,7 @@ jobs:
           
       - name: Send email notification
         if: always()
-        uses: dawidd6/action-send-mail@d454bfb9c8f380ebb5b4f5e45b4b0b16c34e5aad 
+        uses: dawidd6/action-send-mail@v3.12.0
         with:
           server_address: smtp.gmail.com
           server_port: 465
