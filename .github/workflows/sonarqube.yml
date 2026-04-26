@@ -29,7 +29,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install bandit
-      - run: bandit -r . -ll -f json -o bandit-report.json
+      - run: bandit -r ./Python_Project -ll -f json -o bandit-report.json
       - uses: actions/upload-artifact@v4
         with:
           name: bandit-report
