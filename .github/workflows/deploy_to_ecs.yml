@@ -35,7 +35,7 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@3f884f8c7f7c69c71ca2f45e26e9af35b4e14e3c
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc31e567e70a35b75
       
       - name: Get current task definition
         run: |
